@@ -1,5 +1,5 @@
 'use client'
-import { Key, useEffect, useMemo, useRef, useState } from 'react'
+import { Key, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
   faCircleDown,
   faCirclePause,
@@ -25,26 +25,43 @@ import ConfigSlider from './components/config-slider'
 import { ImportTextButton } from './components/import-text-button'
 import LanguageSelect from './components/language-select'
 import { StopTimeButton } from './components/stop-time-button'
-import { DEFAULT_TEXT, MAX_INPUT_LENGTH } from '@/app/lib/constants'
+import { MAX_INPUT_LENGTH } from '@/app/lib/constants'
 
 export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
-  const [input, setInput] = useState<string>('')
+  const initialConfigRef = useRef({
+    input: 'こんにちは',
+    config: {
+      gender: 'male',
+      voiceName: 'ja-JP-DaichiNeural',
+      lang: 'ja-JP',
+      style: '',
+      styleDegree: 1,
+      role: '',
+      rate: -10,
+      volume: 0,
+      pitch: 0,
+    },
+  })
+
+  const [input, setInput] = useState<string>(initialConfigRef.current.input)
+  const [config, setConfig] = useState<Config>(initialConfigRef.current.config)
+
+  const safeSetInput = useCallback((newInput: string) => {
+    setInput(newInput)
+  }, [])
+
+  const safeSetConfig = useCallback((newConfig: Partial<Config>) => {
+    setConfig(prevConfig => ({
+      ...prevConfig,
+      ...newConfig,
+    }))
+  }, [])
+
   const [isLoading, setLoading] = useState<boolean>(false)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const cacheConfigRef = useRef<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
-  const [config, setConfig] = useState<Config>({
-    gender: 'female',
-    voiceName: '',
-    lang: 'zh-CN',
-    style: '',
-    styleDegree: 1,
-    role: '',
-    rate: 0,
-    volume: 0,
-    pitch: 0,
-  })
 
   const langs = useMemo(() => {
     const map = new Map()
@@ -85,74 +102,49 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
   }, [config.voiceName, selectedConfigs])
 
   const handleSelectGender = (e: React.MouseEvent<HTMLButtonElement>, gender: string) => {
-    setConfig(prevConfig => ({ ...prevConfig, gender }))
+    safeSetConfig({ gender })
   }
 
   const handleSelectLang = (value: Key | null) => {
     if (!value) return
     const lang = value.toString()
-    setConfig(prevConfig => ({ ...prevConfig, lang }))
+    safeSetConfig({ lang })
     window.localStorage.setItem('lang', lang)
   }
 
   const handleSlideStyleDegree = (value: SliderValue) => {
     if (typeof value === 'number') {
-      setConfig(prevConfig => ({ ...prevConfig, styleDegree: value }))
+      safeSetConfig({ styleDegree: value })
     }
   }
 
   const handleSlideRate = (value: SliderValue) => {
     if (typeof value === 'number') {
-      setConfig(prevConfig => ({ ...prevConfig, rate: value }))
+      safeSetConfig({ rate: value })
     }
   }
 
   const handleSlideVolume = (value: SliderValue) => {
     if (typeof value === 'number') {
-      setConfig(prevConfig => ({ ...prevConfig, volume: value }))
+      safeSetConfig({ volume: value })
     }
   }
 
   const handleSlidePitch = (value: SliderValue) => {
     if (typeof value === 'number') {
-      setConfig(prevConfig => ({ ...prevConfig, pitch: value }))
+      safeSetConfig({ pitch: value })
     }
   }
 
   const handleSelectVoiceName = (voiceName: string) => {
-    setConfig(prevConfig => ({ ...prevConfig, voiceName, style: '', role: '' }))
+    safeSetConfig({ voiceName, style: '', role: '' })
   }
 
   useEffect(() => {
-    if (typeof window !== undefined) {
-      const browserLang = window.localStorage.getItem('browserLang') === 'cn' ? 'zh-CN' : 'en-US'
-      const lang = window.localStorage.getItem('lang') || browserLang || 'zh-CN'
-      // Set the user's language to the cookie
-      document.cookie = `user-language=${lang}; path=/`
-
-      setConfig(prevConfig => ({ ...prevConfig, lang }))
-      setInput(lang.startsWith('zh') ? DEFAULT_TEXT.CN : DEFAULT_TEXT.EN)
-    }
-  }, [list])
-
-  useEffect(() => {
-    if (!genders.length) return
-    setConfig(prevConfig => ({ ...prevConfig, gender: genders[0].value }))
-  }, [config.lang, genders])
-
-  // set default voice name when voiceNames changes
-  useEffect(() => {
-    if (voiceNames.length && !config.voiceName) {
-      handleSelectVoiceName(voiceNames[0].value)
-    }
-  }, [voiceNames, config.voiceName])
-
-  // set voiceName when gender changes
-  useEffect(() => {
-    if (voiceNames.length) {
-      setConfig(prevConfig => ({ ...prevConfig, voiceName: voiceNames[0].value }))
-    }
-  }, [voiceNames, config.gender])
+    // 直接使用指定的默认配置
+    setInput(initialConfigRef.current.input)
+    setConfig(initialConfigRef.current.config)
+  }, [])
 
   const fetchAudio = async () => {
     const res = await fetch('/api/audio', {
@@ -188,7 +180,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
       }
       setIsPlaying(true)
       audioRef.current?.play()
-      // save cache mark
       cacheConfigRef.current = cacheString
     } catch (err) {
       console.error('Error fetching audio:', err)
@@ -245,19 +236,19 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
   }
 
   const resetStyleDegree = () => {
-    setConfig(prevConfig => ({ ...prevConfig, styleDegree: 1 }))
+    safeSetConfig({ styleDegree: 1 })
   }
 
   const resetRate = () => {
-    setConfig(prevConfig => ({ ...prevConfig, rate: 0 }))
+    safeSetConfig({ rate: 0 })
   }
 
   const resetVolume = () => {
-    setConfig(prevConfig => ({ ...prevConfig, volume: 0 }))
+    safeSetConfig({ volume: 0 })
   }
 
   const resetPitch = () => {
-    setConfig(prevConfig => ({ ...prevConfig, pitch: 0 }))
+    safeSetConfig({ pitch: 0 })
   }
 
   const getCacheMark: () => string = () => {
@@ -268,7 +259,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
     <div className="grow overflow-y-auto flex md:justify-center gap-10 py-5 px-6 sm:px-10 md:px-10 lg:px-20 xl:px-40 2xl:px-50 flex-col md:flex-row">
       <div className="md:flex-1">
         <Toaster position="top-center" />
-        {/* textarea */}
         <Textarea
           size="lg"
           disableAutosize
@@ -279,15 +269,13 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
           placeholder={t['input-text']}
           value={input}
           maxLength={MAX_INPUT_LENGTH}
-          onChange={e => setInput(e.target.value)}
+          onChange={e => safeSetInput(e.target.value)}
         />
         <p className="text-right pt-2">
           {input.length}/{MAX_INPUT_LENGTH}
         </p>
-        {/* icons */}
         <div className="flex justify-between items-center pt-3">
           <div className="flex gap-3">
-            {/* download */}
             <FontAwesomeIcon
               title={t.download}
               titleId="faCircleDown"
@@ -295,7 +283,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
               className="w-8 h-8 text-blue-600 hover:text-blue-500 transition-colors cursor-pointer"
               onClick={handleDownload}
             />
-            {/* import */}
             <ImportTextButton
               buttonIcon={
                 <FontAwesomeIcon
@@ -320,10 +307,8 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
               t={t}
               insertTextAtCursor={handleInsertPause}
             />
-            {/* stop time */}
           </div>
 
-          {/* play */}
           {isLoading ? (
             <Spinner className="w-8 h-8" />
           ) : (
@@ -337,7 +322,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
           )}
         </div>
       </div>
-      {/* select language */}
       <div className="md:flex-1 flex flex-col">
         <LanguageSelect t={t} langs={langs} selectedLang={config.lang} handleSelectLang={handleSelectLang} />
         <div className="pt-4 flex gap-2">
@@ -358,7 +342,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
           isCompact
           defaultExpandedKeys={['1', '2', '3', '4']}
         >
-          {/* voice */}
           <AccordionItem
             key="1"
             aria-label={t.voice}
@@ -402,7 +385,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
             </div>
           </AccordionItem>
 
-          {/* style */}
           <AccordionItem
             key="2"
             aria-label={t.style}
@@ -442,7 +424,7 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
                 key="defaultStyle"
                 color={config.style === '' ? 'primary' : 'default'}
                 className="mt-1"
-                onClick={() => setConfig(prevConfig => ({ ...prevConfig, style: '' }))}
+                onClick={() => safeSetConfig({ style: '' })}
               >
                 {t.default}
               </Button>
@@ -452,7 +434,7 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
                     key={item}
                     color={item === config.style ? 'primary' : 'default'}
                     className="mt-1"
-                    onClick={() => setConfig(prevConfig => ({ ...prevConfig, style: item }))}
+                    onClick={() => safeSetConfig({ style: item })}
                   >
                     {t.styles[item] || item}
                   </Button>
@@ -461,7 +443,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
             </div>
           </AccordionItem>
 
-          {/* role */}
           <AccordionItem
             key="3"
             aria-label={t.role}
@@ -477,7 +458,7 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
                 key="defaultRole"
                 color={config.role === '' ? 'primary' : 'default'}
                 className="mt-1"
-                onClick={() => setConfig(prevConfig => ({ ...prevConfig, role: '' }))}
+                onClick={() => safeSetConfig({ role: '' })}
               >
                 {t.default}
               </Button>
@@ -487,7 +468,7 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
                     key={item}
                     color={item === config.role ? 'primary' : 'default'}
                     className="mt-1"
-                    onClick={() => setConfig(prevConfig => ({ ...prevConfig, role: item }))}
+                    onClick={() => safeSetConfig({ role: item })}
                   >
                     {t.roles[item] || item}
                   </Button>
@@ -496,7 +477,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
             </div>
           </AccordionItem>
 
-          {/* Advanced settings */}
           <AccordionItem
             key="4"
             aria-label={t.advancedSettings}
@@ -508,7 +488,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
               </div>
             }
           >
-            {/* rate */}
             <ConfigSlider
               label={t.rate}
               value={config.rate}
@@ -517,7 +496,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
               onChange={handleSlideRate}
               reset={resetRate}
             />
-            {/* pitch */}
             <ConfigSlider
               label={t.pitch}
               value={config.pitch}
@@ -526,7 +504,6 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
               onChange={handleSlidePitch}
               reset={resetPitch}
             />
-            {/* volume */}
             <ConfigSlider
               label={t.volume}
               value={config.volume}
