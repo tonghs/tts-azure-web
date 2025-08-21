@@ -37,7 +37,7 @@ export default function Content({ t, list }: { t: Tran; list: ListItem[] }) {
       style: '',
       styleDegree: 1,
       role: '',
-      rate: -10,
+      rate: 0,
       volume: 0,
       pitch: 0,
     },
