@@ -10,7 +10,7 @@ async function fetchAudio(token: string, SSML: string): Promise<any> {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/ssml+xml',
-      'X-MICROSOFT-OutputFormat': 'audio-16khz-32kbitrate-mono-mp3',
+      'X-MICROSOFT-OutputFormat': 'audio-48khz-192kbitrate-mono-mp3',
     },
     body: SSML,
   })
